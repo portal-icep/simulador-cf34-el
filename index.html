@@ -685,6 +685,9 @@
 
   /* Menu no palco, acima das janelas da HIS e do sumário; diálogos operacionais
      permanecem na camada superior para que confirmações e alertas sejam legíveis. */
+  /* O palco corta o diagrama dentro de #area; overlays podem ultrapassar sua
+     borda para ocupar a faixa preta/letterbox sem serem recortados pelo palco. */
+  #his-stage.master-shell{overflow:visible}
   #his-stage.master-shell > #sim-panel{left:6px;top:6px;z-index:200}
   #his-stage.master-shell > #dialogo{z-index:210!important}
 
