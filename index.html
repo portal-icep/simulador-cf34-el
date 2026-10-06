@@ -688,16 +688,12 @@
   #his-stage.master-shell > #sim-panel{left:6px;top:6px;z-index:200}
   #his-stage.master-shell > #dialogo{z-index:210!important}
 
-  /* Transparência somente nas superfícies: nunca aplicar opacity ao painel,
-     pois isso tornaria texto, botões e avisos transparentes também. */
-  #sim-panel[data-transparencia="1"]{--sim-fundo-alpha:.72;--sim-cartao-alpha:.82;--sim-status-alpha:.95}
-  #sim-panel[data-transparencia="2"]{--sim-fundo-alpha:.50;--sim-cartao-alpha:.68;--sim-status-alpha:.87}
-  #sim-panel[data-transparencia="3"]{--sim-fundo-alpha:.28;--sim-cartao-alpha:.54;--sim-status-alpha:.80}
-  #sim-panel[data-transparencia="4"]{--sim-fundo-alpha:.12;--sim-cartao-alpha:.40;--sim-status-alpha:.72}
-  #his-stage.master-shell > #sim-panel.translucido{background:rgba(230,237,243,var(--sim-fundo-alpha))}
-  #his-stage.master-shell > #sim-panel.translucido #jan-bar{background:rgba(230,237,243,var(--sim-fundo-alpha))!important}
-  #his-stage.master-shell > #sim-panel.translucido .sim-card{background:rgba(255,255,255,var(--sim-cartao-alpha))!important}
-  #his-stage.master-shell > #sim-panel.translucido #catalogo-status{background:rgba(251,252,253,var(--sim-status-alpha))!important}
+  /* Cada nível reduz a opacidade do painel inteiro de forma uniforme: fundo,
+     cartões, texto e controles deixam ver a tela HIS por trás na mesma medida. */
+  #sim-panel[data-transparencia="1"]{opacity:.85}
+  #sim-panel[data-transparencia="2"]{opacity:.70}
+  #sim-panel[data-transparencia="3"]{opacity:.55}
+  #sim-panel[data-transparencia="4"]{opacity:.40}
   #sim-panel #sim-transparencia{width:64px;flex:0 0 64px;white-space:nowrap;font-size:11px}
   #sim-panel #sim-transparencia[aria-pressed="true"]{background:#dceefa;color:#174a70;border-color:#8bb8d8}
 
@@ -4881,8 +4877,7 @@ if (typeof module !== 'undefined' && module.exports) {
         validacaoEtapas.i++;
       }
       catalogoNivel=nivelDoItemCatalogo(validacaoEtapas.item); catalogoTipo=validacaoEtapas.item.tipo;
-      preencherCatalogo();
-      var sel=document.getElementById('sel-catalogo'); if(sel){sel.value=validacaoEtapas.item.id;}
+      preencherCatalogo(validacaoEtapas.item.id);
       avancarValidacaoAutomatica();
       return;
     }
@@ -4890,9 +4885,7 @@ if (typeof module !== 'undefined' && module.exports) {
     var objetivoPrincipal=objetivoPrincipalId ? localizarItemCatalogo(objetivoPrincipalId) : null;
     if (objetivoPrincipal && objetivoPrincipal.id !== validacaoEtapas.item.id && !itemObjetivoAtendido(objetivoPrincipal)) {
       catalogoNivel=nivelDoItemCatalogo(objetivoPrincipal); catalogoTipo=objetivoPrincipal.tipo;
-      preencherCatalogo();
-      var seletorPrincipal=document.getElementById('sel-catalogo');
-      if(seletorPrincipal){seletorPrincipal.value=objetivoPrincipal.id;}
+      preencherCatalogo(objetivoPrincipal.id);
       catalogoSelecionado=objetivoPrincipal;
       registrar([{tipo:'CFG',t:0,equip:objetivoPrincipal.id,ok:true,
         texto:'Item prévio validado. Objetivo principal mantido: '+rotuloItemPadrao(objetivoPrincipal)+'. O catálogo recalculou os próximos itens necessários.'}]);
@@ -4957,20 +4950,20 @@ if (typeof module !== 'undefined' && module.exports) {
     avancarValidacaoAutomatica();
     desenhar(); atualizarCatalogoStatus(); atualizarPainelManobra();
   };
-  UI.abrirItemReferenciado=function(id){
+  UI.abrirItemReferenciado=function(id, prepararRun){
     var m=localizarItemCatalogo(id); if(!m||modoTreino!=='GUIADO'){return;}
     if(!objetivoPrincipalId){objetivoPrincipalId=m.id;}
     if(validacaoEtapas && !validacaoEtapas.concluida){validacaoPilha.push(validacaoEtapas);}
     validacaoEtapas=null; manobra=null; passo=0; guia=null;
     catalogoNivel=nivelDoItemCatalogo(m); catalogoTipo=m.tipo;
-    preencherCatalogo();
-    var sel=document.getElementById('sel-catalogo'); if(sel){sel.value=m.id;}
+    preencherCatalogo(m.id);
     catalogoSelecionado=m;
     var a=avaliarCondicaoCatalogo(m);
-    if(a.satisfeita && !a.finalOk){
-      manobra={id:m.id,titulo:m.titulo,po:m.po,passos:(m.passos||[]).slice(),espera:m.espera||'',catalogo:true}; passo=0;
-      iniciarValidacaoEtapas(m);
-      registrar([{tipo:'CFG',t:0,equip:m.id,ok:true,texto:'Validação encadeada iniciada — '+rotuloItemPadrao(m)}]);
+    if(a.satisfeita && !a.finalOk && prepararRun){
+      registrar([{tipo:'CFG',t:0,equip:m.id,ok:true,texto:'Item pré-requisito selecionado — condições de partida atendidas. Pressione RUN para iniciar a validação passo a passo.'}]);
+    } else if(a.satisfeita && !a.finalOk){
+      UI.executarCatalogoSelecionado();
+      return;
     } else if (a.finalOk) {
       registrar([{tipo:'PAS',t:0,equip:m.id,ok:true,texto:'Item referenciado já estava satisfeito — '+rotuloItemPadrao(m)}]);
       if(validacaoPilha.length){validacaoEtapas=validacaoPilha.pop(); avancarValidacaoAutomatica();}
@@ -4983,7 +4976,7 @@ if (typeof module !== 'undefined' && module.exports) {
     if(!validacaoPilha.length){return;}
     validacaoEtapas=validacaoPilha.pop();
     catalogoNivel=nivelDoItemCatalogo(validacaoEtapas.item); catalogoTipo=validacaoEtapas.item.tipo;
-    preencherCatalogo(); var sel=document.getElementById('sel-catalogo'); if(sel){sel.value=validacaoEtapas.item.id;}
+    preencherCatalogo(validacaoEtapas.item.id);
     atualizarCatalogoStatus(); atualizarPainelManobra();
   };
   function comandoEtapaCasa(et,ped){
@@ -5408,7 +5401,7 @@ if (typeof module !== 'undefined' && module.exports) {
     };
   }
 
-  function preencherCatalogo() {
+  function preencherCatalogo(idSelecionado) {
     ['13','345','460'].forEach(function (x) {
       var b=document.getElementById('cat-nivel-'+x); if (!b) { return; }
       var val=x==='13'?'13.8':(x==='345'?'3.45':'460');
@@ -5423,7 +5416,10 @@ if (typeof module !== 'undefined' && module.exports) {
       }
     });
     var s=document.getElementById('sel-catalogo'); if (!s) { return; }
-    var anterior=s.value; s.innerHTML='<option value="">— selecione a manobra —</option>';
+    // Aplicar o destino antes de atualizar o status evita renderizar uma seleção
+    // intermediária vazia ou cancelar a validação do item pai durante o retorno.
+    var anterior=typeof idSelecionado==='string' ? idSelecionado : s.value;
+    s.innerHTML='<option value="">— selecione a manobra —</option>';
     listaCatalogoNivel(catalogoNivel).filter(function(m){return m.tipo===catalogoTipo;}).forEach(function(m){
       s.innerHTML += '<option value="'+m.id+'">'+rotuloItemPadrao(m)+'</option>';
     });
@@ -5466,8 +5462,7 @@ if (typeof module !== 'undefined' && module.exports) {
     var m=objetivoPrincipalId ? localizarItemCatalogo(objetivoPrincipalId) : null;
     if(!m){return;}
     catalogoNivel=nivelDoItemCatalogo(m); catalogoTipo=m.tipo;
-    preencherCatalogo();
-    var sel=document.getElementById('sel-catalogo'); if(sel){sel.value=m.id;}
+    preencherCatalogo(m.id);
     catalogoSelecionado=m; atualizarCatalogoStatus(); atualizarPainelManobra();
   };
 
@@ -5480,10 +5475,10 @@ if (typeof module !== 'undefined' && module.exports) {
     preencherCatalogo(); atualizarPainelManobra();
   };
 
-  function botaoItemReferenciado(item, rotulo) {
+  function botaoItemReferenciado(item, rotulo, prepararRun) {
     if (!item) { return ''; }
     var texto=rotulo || codigoItemPadrao(item);
-    return '<button type="button" class="cat-item-link" title="Abrir '+rotuloItemPadrao(item)+'" onclick="SIM_UI.abrirItemReferenciado(\''+item.id+'\')">'+texto+'</button>';
+    return '<button type="button" class="cat-item-link" data-item-referencia="'+item.id+'" data-preparar-run="'+(prepararRun?'true':'false')+'" title="Abrir '+rotuloItemPadrao(item)+'">'+texto+'</button>';
   }
 
   function conflitoComObjetivoPrincipal(item) {
@@ -5537,6 +5532,14 @@ if (typeof module !== 'undefined' && module.exports) {
       box._simContingenciaClickDelegado=true;
       box.addEventListener('click',function(ev){
         var alvo=ev.target;
+        while(alvo && alvo!==box && !(alvo.getAttribute && alvo.getAttribute('data-item-referencia'))){alvo=alvo.parentNode;}
+        var itemRef=alvo && alvo!==box && alvo.getAttribute ? alvo.getAttribute('data-item-referencia') : '';
+        if(itemRef){
+          ev.preventDefault();
+          UI.abrirItemReferenciado(itemRef,alvo.getAttribute('data-preparar-run')==='true');
+          return;
+        }
+        alvo=ev.target;
         while(alvo && alvo!==box && !(alvo.getAttribute && alvo.getAttribute('data-rota-contingencia-cte3'))){alvo=alvo.parentNode;}
         var id=alvo && alvo!==box && alvo.getAttribute ? alvo.getAttribute('data-rota-contingencia-cte3') : '';
         if(id){ev.preventDefault();UI.selecionarManobraContingenciaCTE3(id);}
@@ -5560,10 +5563,7 @@ if (typeof module !== 'undefined' && module.exports) {
     if (validacaoEtapas && (!m || !validacaoEtapas.item || validacaoEtapas.item.id !== m.id)) {
       validacaoEtapas=null; manobra=null; passo=0; guia=null;
     }
-      var objetivoPrincipal=objetivoPrincipalId ? localizarItemCatalogo(objetivoPrincipalId) : null;
-    var ePreRequisitoDoObjetivo=!!(objetivoPrincipal && objetivoPrincipal.id!==m.id
-      && ((objetivoPrincipal.preItens||[]).indexOf(m.id)>=0
-        || etapasDoItem(objetivoPrincipal).some(function(et){return et.tipo==='item' && et.itemRef===m.id;})));
+    var objetivoPrincipal=objetivoPrincipalId ? localizarItemCatalogo(objetivoPrincipalId) : null;
     var run=document.getElementById('run-catalogo'); if (run) { run.disabled=!m; }
     if (!m) {
       var statusSemSelecao=(objetivoPrincipal?'<div class="cat-goal">OBJETIVO PRINCIPAL: '+botaoItemReferenciado(objetivoPrincipal,codigoItemPadrao(objetivoPrincipal))+' <span>— '+objetivoPrincipal.titulo+'</span></div>':'')
@@ -5579,6 +5579,9 @@ if (typeof module !== 'undefined' && module.exports) {
       box.innerHTML=statusSemSelecao;
       return;
     }
+    var ePreRequisitoDoObjetivo=!!(objetivoPrincipal && objetivoPrincipal.id!==m.id
+      && ((objetivoPrincipal.preItens||[]).indexOf(m.id)>=0
+        || etapasDoItem(objetivoPrincipal).some(function(et){return et.tipo==='item' && et.itemRef===m.id;})));
     var conflitoObjetivo=conflitoComObjetivoPrincipal(m);
     var a=avaliarCondicaoCatalogo(m), h='';
     if(objetivoPrincipal){
@@ -6060,8 +6063,7 @@ if (typeof module !== 'undefined' && module.exports) {
     contingenciaGuiadaItemCTE3=item.id; objetivoPrincipalId=item.id;
     contingenciaGuiadaOpcoesCTE3=[]; contingenciaGuiadaSemRotaCTE3=false;
     catalogoNivel='13.8'; catalogoTipo='TRANSF';
-    preencherCatalogo();
-    var sel=document.getElementById('sel-catalogo'); if(sel){sel.value=item.id;}
+    preencherCatalogo(item.id);
     UI.abrirItemReferenciado(item.id);
     atualizarCatalogoStatus(); atualizarPainelManobra();
   };
