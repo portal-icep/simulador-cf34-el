@@ -4299,7 +4299,11 @@ if (typeof module !== 'undefined' && module.exports) {
         if (edge.b) { h=Math.max(minH,ini.h+dy); }
         if (edge.l) { w=Math.max(minW,ini.w-dx); l=ini.left+(ini.w-w); }
         if (edge.t) { h=Math.max(minH,ini.h-dy); top=ini.top+(ini.h-h); }
-        l=Math.max(0,Math.min(1672-w,l)); top=Math.max(0,Math.min(941-h,top));
+        /* O menu pode ficar parcialmente fora do palco, sobre a faixa preta.
+           Ao redimensioná-lo, preserve esse deslocamento negativo e mantenha
+           apenas a barra acessível, como no arraste. */
+        var minLeft=el.id==='sim-panel' ? -(w-28) : 0;
+        l=Math.max(minLeft,Math.min(1672-28,l)); top=Math.max(0,Math.min(941-h,top));
         el.style.left=l+'px'; el.style.top=top+'px';
         el.style.width=w+'px'; el.style.height=h+'px'; el.style.right='auto';
       }
